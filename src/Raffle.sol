@@ -36,6 +36,11 @@ contract Raffle is VRFConsumerBaseV2Plus {
     error Raffle__NotEnoughEthToEnterRaffle();
     error Raffle__TransferFailed();
     error Raffle__RaffleNotOpen();
+    error Raffle__UpKeepNotNeeded(
+        uint256 balance,
+        uint256 playersLength,
+        uint256 raffleState
+    );
     /*
         Type declarations
     */
@@ -89,15 +94,44 @@ contract Raffle is VRFConsumerBaseV2Plus {
         if (msg.value < i_entranceFee) {
             revert Raffle__NotEnoughEthToEnterRaffle();
         }
-        if(s_raffleState != RaffleState.OPEN){
+        if (s_raffleState != RaffleState.OPEN) {
             revert Raffle__RaffleNotOpen();
         }
         s_players.push(payable(msg.sender));
         emit RaffleEntered(msg.sender);
     }
-    function pickWinner() public {
-        if ((block.timestamp - s_lastTimeStamp) < i_interval) {
-            revert();
+
+    /**
+     * @dev This is the function that the Chainlink nodes will call to see if the
+     * lottery is ready to have a winner picked
+     *The following should be true in order for upKeepNeeded to return true:
+     *1. The time interval between the raffles has passed
+     *2. The raffle is in the OPEN state
+     *3. The contract has ETH
+     *4. Implicitly, your subscription is funded with LINK
+     * @param -  ignored
+     * @return upKeepNeeded - true if the raffle is ready to have a winner picked
+     * @return - ignored
+     */
+    function checkUpkeep(
+        bytes memory /*checkData*/
+    ) public view returns (bool upKeepNeeded, bytes memory /*performData*/) {
+        bool timeHasPassed = ((block.timestamp - s_lastTimeStamp) < i_interval);
+        bool raffleIsOpen = s_raffleState == RaffleState.OPEN;
+        bool contractHasEth = address(this).balance > 0;
+        bool hasPlayers = s_players.length > 0;
+        upKeepNeeded = timeHasPassed && raffleIsOpen && contractHasEth;
+        return (upKeepNeeded, "");
+    }
+
+    function performUpkeep(bytes calldata /* performData */) external {
+        (bool upKeepNeeded, ) = checkUpkeep("");
+        if (!upKeepNeeded) {
+            revert Raffle__UpKeepNotNeeded(
+                address(this).balance,
+                s_players.length,
+                uint256(s_raffleState)
+            );
         }
 
         s_raffleState = RaffleState.CALCULATING;
