@@ -66,7 +66,7 @@ contract RaffleTest is Test {
         emit RaffleEntered(PLAYER);
         raffle.enterRaffle{value: entranceFee}();
     }
-
+    // Test that the players wont be able to enter the raffle when the raffle is calculating
     function testDontAllowPlayersToEnterWhenRaffleIsCalculating() public {
         // Arrange
         vm.prank(PLAYER);
@@ -80,5 +80,41 @@ contract RaffleTest is Test {
         vm.expectRevert(Raffle.Raffle__RaffleNotOpen.selector);
         vm.prank(PLAYER);
         raffle.enterRaffle{value: entranceFee}();
+    }
+
+    function testCheckUpKeepReturnsFalseIfItHasNoBallance() public {
+        // Arrange
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+        // Act
+        (bool result, ) = raffle.checkUpkeep("");
+        // Assert
+        assert(!result);
+    }
+
+    function testCheckUpKeepReturnsFalseIfRaffleIsNotOpen() public {
+        // Arrange
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+        raffle.performUpkeep("");
+        // Act
+        (bool result, ) = raffle.checkUpkeep("");
+        // Assert
+        assert(!result);
+    }
+
+    function testCheckUpKeepReturnsIfEnoughTimeHasPassed() public {
+        // Arrange
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+        raffle.performUpkeep("");
+        // Act
+        (bool result, ) = raffle.checkUpkeep("");
+        // Assert
+        assert(result);
     }
 }
