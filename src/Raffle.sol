@@ -110,23 +110,26 @@ contract Raffle is VRFConsumerBaseV2Plus {
      *3. The contract has ETH
      *4. Implicitly, your subscription is funded with LINK
      * @param -  ignored
-     * @return upKeepNeeded - true if the raffle is ready to have a winner picked
-     * @return - ignored
-     */
+     * @return upkeepNeeded - true if the raffle is ready to have a winner picked
+     * @return performData - ignored
+    **/
+
+
     function checkUpkeep(
-        bytes memory /*checkData*/
-    ) public view returns (bool upKeepNeeded, bytes memory /*performData*/) {
-        bool timeHasPassed = ((block.timestamp - s_lastTimeStamp) < i_interval);
-        bool raffleIsOpen = s_raffleState == RaffleState.OPEN;
-        bool contractHasEth = address(this).balance > 0;
+        bytes memory /* checkData */
+    ) public view returns (bool upkeepNeeded, bytes memory /* performData */) {
+        bool isOpen = RaffleState.OPEN == s_raffleState;
+        bool timePassed = ((block.timestamp - s_lastTimeStamp) > i_interval);
         bool hasPlayers = s_players.length > 0;
-        upKeepNeeded = timeHasPassed && raffleIsOpen && contractHasEth;
-        return (upKeepNeeded, "");
+        bool hasBalance = address(this).balance > 0;
+        upkeepNeeded = (timePassed && isOpen && hasBalance && hasPlayers);
+        return (upkeepNeeded, "0x0"); // can we comment this out?
     }
 
     function performUpkeep(bytes calldata /* performData */) external {
-        (bool upKeepNeeded, ) = checkUpkeep("");
-        if (!upKeepNeeded) {
+        (bool upkeepNeeded, ) = checkUpkeep("");
+        // require(upkeepNeeded, "Upkeep not needed");
+        if (!upkeepNeeded) {
             revert Raffle__UpKeepNotNeeded(
                 address(this).balance,
                 s_players.length,
@@ -136,19 +139,21 @@ contract Raffle is VRFConsumerBaseV2Plus {
 
         s_raffleState = RaffleState.CALCULATING;
 
-        VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient
-            .RandomWordsRequest({
+        // Will revert if subscription is not set and funded.
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(
+            VRFV2PlusClient.RandomWordsRequest({
                 keyHash: i_gasLane,
                 subId: i_subscriptionId,
                 requestConfirmations: REQUEST_CONFIRMATIONS,
                 callbackGasLimit: i_callbackGasLimit,
                 numWords: NUM_WORDS,
                 extraArgs: VRFV2PlusClient._argsToBytes(
+                    // Set nativePayment to true to pay for VRF requests with Sepolia ETH instead of LINK
                     VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
                 )
-            });
-
-        uint256 requestId = s_vrfCoordinator.requestRandomWords(request);
+            })
+        );
+        // Quiz... is this redundant?
     }
     function fulfillRandomWords(
         uint256 requestId,
@@ -171,5 +176,13 @@ contract Raffle is VRFConsumerBaseV2Plus {
      */
     function getEntranceFee() public view returns (uint256) {
         return i_entranceFee;
+    }
+
+    function getRaffleState() public view returns (RaffleState) {
+        return s_raffleState;
+    }
+
+    function getPlayer(uint256 index) public view returns (address) {
+        return s_players[index];
     }
 }
