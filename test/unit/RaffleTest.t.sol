@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
+
 import {Test, console2} from "forge-std/Test.sol";
 import {DeployRaffle} from "script/DeployRaffle.s.sol";
 import {Raffle} from "src/Raffle.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+
 contract RaffleTest is Test {
     Raffle public raffle;
     HelperConfig public helperConfig;
@@ -38,6 +40,7 @@ contract RaffleTest is Test {
     }
     // Tests
     // Test that the raffle reverts when the player doesn't pay enough
+
     function testRaffleRevertsWHenYouDontPayEnough() public {
         // Arrange
         vm.prank(PLAYER);
@@ -46,6 +49,7 @@ contract RaffleTest is Test {
         raffle.enterRaffle();
     }
     // Test that the raffle reverts when the player doesn't pay enough
+
     function testRaffleRecordsPlayerWhenTheyEnter() public {
         // Arrange
         vm.prank(PLAYER);
@@ -58,6 +62,7 @@ contract RaffleTest is Test {
         assert(playerRecorded == PLAYER);
     }
     // Test that the raffle emits an event when a player enters
+
     function testEnteringRaffleEmitsEvent() public {
         // Arrange
         vm.prank(PLAYER);
@@ -69,6 +74,7 @@ contract RaffleTest is Test {
         raffle.enterRaffle{value: entranceFee}();
     }
     // Test that the players wont be able to enter the raffle when the raffle is calculating
+
     function testDontAllowPlayersToEnterWhenRaffleIsCalculating() public {
         // Arrange
         vm.prank(PLAYER);
@@ -89,7 +95,7 @@ contract RaffleTest is Test {
         vm.warp(block.timestamp + interval + 1);
         vm.roll(block.number + 1);
         // Act
-        (bool result, ) = raffle.checkUpkeep("");
+        (bool result,) = raffle.checkUpkeep("");
         // Assert
         assert(!result);
     }
@@ -102,7 +108,7 @@ contract RaffleTest is Test {
         vm.roll(block.number + 1);
         raffle.performUpkeep("");
         // Act
-        (bool result, ) = raffle.checkUpkeep("");
+        (bool result,) = raffle.checkUpkeep("");
         // Assert
         assert(!result);
     }
@@ -113,7 +119,7 @@ contract RaffleTest is Test {
         raffle.enterRaffle{value: entranceFee}();
 
         // Act
-        (bool upkeepNeeded, ) = raffle.checkUpkeep("");
+        (bool upkeepNeeded,) = raffle.checkUpkeep("");
 
         // Assert
         assert(!upkeepNeeded);
@@ -140,16 +146,12 @@ contract RaffleTest is Test {
         numPlayers = 1;
         // Act / Assert
         vm.expectRevert(
-            abi.encodeWithSelector(
-                Raffle.Raffle__UpKeepNotNeeded.selector,
-                currentBalance,
-                numPlayers,
-                rState
-            )
+            abi.encodeWithSelector(Raffle.Raffle__UpKeepNotNeeded.selector, currentBalance, numPlayers, rState)
         );
         raffle.performUpkeep("");
     }
     // ---------------Modifiers-------------------
+
     modifier raffleEntered() {
         // Arrange
         vm.prank(PLAYER);
@@ -158,16 +160,15 @@ contract RaffleTest is Test {
         vm.roll(block.number + 1);
         _;
     }
+
     modifier skipFork() {
         if (block.chainid != 31337) {
             return;
         }
         _;
     }
-    function testPerfomUpKeepUpdatesRaffleStateAndEmitsRequestId()
-        public
-        raffleEntered
-    {
+
+    function testPerfomUpKeepUpdatesRaffleStateAndEmitsRequestId() public raffleEntered {
         // Act
         vm.recordLogs();
         raffle.performUpkeep("");
@@ -179,25 +180,16 @@ contract RaffleTest is Test {
         assert(uint256(rState) == 1);
     }
     // ---------------Fulfill Random Words-------------------
-    function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep()
-        public
-        raffleEntered
-        skipFork
-    {
+
+    function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep() public raffleEntered skipFork {
         // Arrange
         // Act / Assert
         vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector);
         // vm.mockCall could be used here...
-        VRFCoordinatorV2_5Mock(vrfCoordinatorV2).fulfillRandomWords(
-            0,
-            address(raffle)
-        );
+        VRFCoordinatorV2_5Mock(vrfCoordinatorV2).fulfillRandomWords(0, address(raffle));
 
         vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector);
-        VRFCoordinatorV2_5Mock(vrfCoordinatorV2).fulfillRandomWords(
-            1,
-            address(raffle)
-        );
+        VRFCoordinatorV2_5Mock(vrfCoordinatorV2).fulfillRandomWords(1, address(raffle));
     }
 
     function testFulfillRandomWordsPicksAWinnerResetsAndSendsMoney() public {
@@ -223,7 +215,7 @@ contract RaffleTest is Test {
         vm.roll(block.number + 1);
 
         // Ensure the upkeep conditions are met
-        (bool upkeepNeeded, ) = raffle.checkUpkeep("");
+        (bool upkeepNeeded,) = raffle.checkUpkeep("");
         require(upkeepNeeded, "Upkeep not needed");
 
         // Perform the upkeep
@@ -232,9 +224,7 @@ contract RaffleTest is Test {
         // Simulate the VRF callback
         uint256 requestId = 1; // Assuming requestId is 1 for simplicity
         uint256[] memory randomWords = new uint256[](1);
-        randomWords[0] = uint256(
-            keccak256(abi.encodePacked(block.timestamp, block.difficulty))
-        ); // Generate a pseudo-random number
+        randomWords[0] = uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty))); // Generate a pseudo-random number
 
         // Act
         vm.prank(address(vrfCoordinatorV2));
