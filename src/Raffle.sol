@@ -69,6 +69,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
     */
     event RaffleEntered(address indexed player);
     event RaffleWinner(address indexed winner);
+    event RequestedRaffleWinner(uint256 indexed requestId);
     constructor(
         uint256 subscriptionId,
         bytes32 gasLane, // keyHash
@@ -153,7 +154,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
                 )
             })
         );
-        // Quiz... is this redundant?
+        emit RequestedRaffleWinner(requestId);
     }
     function fulfillRandomWords(
         uint256 requestId,
@@ -184,5 +185,13 @@ contract Raffle is VRFConsumerBaseV2Plus {
 
     function getPlayer(uint256 index) public view returns (address) {
         return s_players[index];
+    }
+
+    function getLastTimeStamp() public view returns (uint256) {
+        return s_lastTimeStamp;
+    }
+
+    function getRecentWinner() public view returns (address) {
+        return s_recentWinner;
     }
 }
